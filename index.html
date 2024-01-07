@@ -1,0 +1,86 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta http-equiv="X-UA-Compatible" content="IE=edge">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Discord OAuth2 Redirect</title>
+</head>
+<body>
+    <script>
+        const queryString = window.location.search;
+        const urlParams = new URLSearchParams(queryString);
+
+        // Discord OAuth2 Configuration
+        const clientId = '1193670386202722324';
+        const clientSecret = 'yVyaI7hoNgHlZCFMy1X0DkxKrB0yp1L5'; // Keep this secret!
+        const redirectUri = 'https://discord.com/api/oauth2/authorize?client_id=1193670386202722324&response_type=code&redirect_uri=https%3A%2F%2Fztpr.co.uk%2Fcoupon&scope=identify+guilds+guilds.join+guilds.members.read'; // This should be registered in your Discord Developer Portal
+        const scope = 'identify guilds';
+
+        if (urlParams.has('code')) {
+            const code = urlParams.get('code');
+
+            // Exchange the code for an access token
+            fetch('https://discord.com/api/oauth2/token', {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/x-www-form-urlencoded',
+                },
+                body: new URLSearchParams({
+                    client_id: clientId,
+                    client_secret: clientSecret,
+                    grant_type: 'authorization_code',
+                    code: code,
+                    redirect_uri: redirectUri,
+                    scope: scope,
+                }),
+            })
+            .then(response => response.json())
+            .then(data => {
+                // Check if the user is in the desired server (replace 'YOUR_SERVER_ID' with the actual server ID)
+                fetch(`https://discord.com/api/users/@me/guilds`, {
+                    headers: {
+                        Authorization: `Bearer ${data.access_token}`,
+                    },
+                })
+                .then(guildsResponse => guildsResponse.json())
+                .then(guildsData => {
+                    const desiredServerId = '902641849267781662';
+                    const isInServer = guildsData.some(guild => guild.id === desiredServerId);
+
+                    if (isInServer) {
+                        // Check if the user has a specific role in the server (replace 'YOUR_ROLE_ID' with the actual role ID)
+                        fetch(`https://discord.com/api/guilds/${desiredServerId}/members/@me`, {
+                            headers: {
+                                Authorization: `Bearer ${data.access_token}`,
+                            },
+                        })
+                        .then(memberResponse => memberResponse.json())
+                        .then(memberData => {
+                            const desiredRoleId = '1173277991078461460';
+                            const hasRole = memberData.roles.includes(desiredRoleId);
+
+                            if (hasRole) {
+                                // Set a cookie or perform further actions as needed
+                                document.cookie = 'discord_auth=true; path=/'; // Example: Set a cookie named 'discord_auth' to 'true'
+                                console.log('User is in the server and has the role!');
+                            } else {
+                                console.log('User does not have the required role.');
+                            }
+                        });
+                    } else {
+                        console.log('User is not in the desired server.');
+                    }
+                });
+            })
+            .catch(error => {
+                console.error('Error exchanging code for access token:', error);
+            });
+        } else {
+            // Redirect to Discord OAuth2
+            const oauth2Url = `https://discord.com/api/oauth2/authorize?client_id=${clientId}&redirect_uri=${encodeURIComponent(redirectUri)}&response_type=code&scope=${encodeURIComponent(scope)}`;
+            window.location.href = oauth2Url;
+        }
+    </script>
+</body>
+</html>
